@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>画板</title>
+    <style>
+        body{
+            background-color: #000;
+        }
+        #box{
+            text-align: center;
+            border: 1px solid #000;
+            border-radius: 10px;
+            padding: 50px;
+            width: 600px;
+            margin: 0 auto;
+            background-color: #eee;
+        }
+        canvas{
+            border: 1px solid #000;
+            cursor: default;
+            border-radius: 10px;
+        }
+        #colorBox>span{
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 1px solid gray;
+            vertical-align: middle;
+        }
+        #colorBox>span:hover{
+            cursor: pointer;
+        }
+        #eraser{
+            width: 30px;
+            height: 10px;
+            border: 1px solid #000;
+            padding: 4px;
+            border-radius: 5px;
+        }
+        #eraser:hover{
+            cursor: pointer;
+        }
+        #sizeBox{
+            margin-top: 10px;
+        }
+        #sizeSpan{
+            margin-right: 10px;
+            width: 50px;
+        }
+        #penSize{
+            vertical-align: middle;
+            width: 300px;
+        }
+        #currentColor{
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            background-color: #000;
+            border: 1px solid #000;
+            vertical-align: middle;
+        }
+
+        /*自定义range样式*/
+        input[type=range] {
+		    -webkit-appearance: none;/* 去除滑槽默认样式 */
+		    width: 260px;
+		    border-radius: 10px; /*这个属性设置使填充进度条时的图形为圆角*/
+		}
+		input[type=range]::-webkit-slider-thumb {
+		    -webkit-appearance: none;/* 去除滑块默认样式 */
+		    height: 18px;
+		    width: 18px;
+		    margin-top: -6px; /*使滑块超出轨道部分的偏移量相等*/
+		    background: white; 
+		    border-radius: 50%; /*外观设置为圆形*/
+		    border: solid 0.5em #666; /*设置边框*/
+		}
+		input[type=range]::-webkit-slider-runnable-track {
+		    height: 8px;
+		    border-radius: 10px; /*将轨道设为圆角的*/
+		    background: #fff;
+            border: 1px solid #000;
+		}
+		input[type=range]:focus {
+		    outline: none;
+		}
+        /*清空画板*/
+        #clear{
+            padding: 6px;
+            margin-top: 10px;
+            border-radius: 10px;
+            outline: none;
+        }
+    </style>
+</head>
+<body onContextMenu="return false;" onSelectStart="return false;">
+    <div id="box">
+        <canvas id="canvas" width="500" height="300">你的浏览器不支持canvas</canvas><br>
+        <div id="panel">
+            <div id="colorBox">
+                <i id="currentColor"></i>
+                <b id="eraser">橡皮擦</b>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                <span></span>
+                其他颜色: <input type="color" name="" id="colorInput" />
+            </div>
+            <div id="sizeBox">
+                画笔宽度: <input type="number" id="sizeSpan" name="" value="" min="1" max="20">
+                <input type="range" name="" id="penSize" min="1" max="20" value="6">
+                <br><span id="alert"></span>
+            </div>
+            <button type="" id="clear">清空画板</button>
+        </div>
+    </div>
+    
+    <script>
+        let cvs = document.querySelector("#canvas");
+        let ctx = canvas.getContext("2d");
+        let penColor = document.querySelectorAll("#colorBox>span");
+        let currentColor = document.querySelector("#currentColor");
+        let sizeSpan = document.querySelector("#sizeSpan");
+        let penSize = document.querySelector("#penSize");
+        let alert = document.querySelector("#alert");
+        let clear = document.querySelector("#clear");
+        let colors = ["#f00","#0f0","#00f","#000","#fff"];
+        let oldX, oldY;
+        window.onload = function(e){
+            cvs.style.background = "#fff";
+            ctx.lineWidth = 6; // 初始线宽
+            sizeSpan.value = penSize.value;
+            // 添加颜色盒
+            for(let i = 0; i < penColor.length; i ++){
+                penColor[i].style.backgroundColor = colors[i];
+            }
+            // 改变颜色
+            for(let color of penColor){
+                color.onclick = function(){
+                    ctx.lineWidth = penSize.value;
+                    eraser.style.backgroundColor = "#fff";
+                    ctx.strokeStyle = this.style.backgroundColor;
+                    currentColor.style.backgroundColor = ctx.strokeStyle;
+                }
+            }
+        }
+        // 改变画笔宽度
+        penSize.onchange = function(){
+            sizeSpan.value = penSize.value;
+            ctx.lineWidth = penSize.value;
+        }
+        sizeSpan.onchange = function(){
+            if(sizeSpan.value > 20){
+                alert.innerHTML = "输入的值不能大于20";
+                sizeSpan.value = 20;
+            }
+            if(sizeSpan.value < 1){
+                alert.innerHTML = "输入的值不能小于1";
+                sizeSpan.value = 1;
+            }
+            penSize.value = sizeSpan.value;
+            ctx.lineWidth = penSize.value;
+        }
+        // 改变颜色
+        colorInput.onchange = function(){
+            eraser.style.backgroundColor = "#fff";
+            ctx.strokeStyle = this.value;
+            currentColor.style.backgroundColor = ctx.strokeStyle;
+        }
+        // 鼠标按下
+        cvs.addEventListener("mousedown",function(e){          
+            var x = e.pageX - this.offsetLeft;
+            var y = e.pageY - this.offsetTop;
+            // console.log(x,y);
+            //记录上一个点
+            oldX = x-1; oldY = y-1;
+            drawLine(x, y); //画线
+            cvs.addEventListener('mousemove',move,false);
+            cvs.addEventListener('mouseup',up,false);
+        },false);
+
+        // 鼠标移动
+        function move(e){
+            var x = e.pageX - this.offsetLeft;
+            var y = e.pageY - this.offsetTop;
+            drawLine(x, y); //画线
+            //记录上一个点
+            oldX = x-1; oldY = y-1;
+        }
+
+        // 鼠标抬起
+        function up(e){
+            this.removeEventListener("mousemove", move, false);
+            this.removeEventListener("mouseup", up, false);
+        }
+
+        // 绘制线段
+        function drawLine (x, y) {
+            ctx.beginPath();
+		    ctx.lineJoin = "round";
+            ctx.lineCap = "round";
+            // 从旧的点移动到新的点
+            ctx.moveTo(oldX, oldY);
+            ctx.lineTo(x, y);
+            // 绘制路径
+            ctx.stroke();
+            ctx.closePath();
+        }
+
+        // 橡皮擦
+        let eraser = document.querySelector("#eraser");
+        eraser.onclick = function(){
+            ctx.strokeStyle = cvs.style.backgroundColor;
+            ctx.lineWidth = penSize.value * 2;
+            this.style.backgroundColor = "#ccc";
+        }
+        
+        // 清空画板
+        clear.onclick = function(){
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    </script>
+</body>
+</html>
